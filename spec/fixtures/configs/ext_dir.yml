@@ -1,0 +1,3 @@
+presets_dir: ../presets_ext
+servers:
+  - {host: h1, label: n1, inherit: ext_leaf}

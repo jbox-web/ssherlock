@@ -1,0 +1,19 @@
+PROGRAM_NAME ?= ssherlock
+SOURCE_FILE  ?= src/ssherlock.cr
+TARGETOS     ?= linux
+TARGETARCH   ?= amd64
+COMPILE_OPTS := --threads 4 --release --error-trace --static
+
+# `licenses` is a task, not a file: it would collide with the generated
+# licenses/ directory and be skipped as "up to date" without .PHONY.
+.PHONY: release deps licenses
+
+release: deps licenses
+	crystal build $(COMPILE_OPTS) -o bin/$(PROGRAM_NAME)-$(TARGETOS)-$(TARGETARCH) $(SOURCE_FILE)
+	cd bin && sha256sum $(PROGRAM_NAME)-$(TARGETOS)-$(TARGETARCH) > $(PROGRAM_NAME)-$(TARGETOS)-$(TARGETARCH).sha256
+
+deps:
+	shards install --production
+
+licenses:
+	bash scripts/harvest-licenses.sh

@@ -1,0 +1,11 @@
+inherit: base
+options:
+  wrap: false
+checks:
+  cpu:
+    extra:
+      description: CPU count
+      command: |
+        nproc
+  net:
+    routes: ~

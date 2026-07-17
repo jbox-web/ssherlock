@@ -1,0 +1,8 @@
+options:
+  wrap: true
+checks:
+  ext:
+    marker:
+      description: External-dir preset marker
+      command: |
+        echo ext_leaf

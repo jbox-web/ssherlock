@@ -1,0 +1,13 @@
+options:
+  wrap: true
+checks:
+  cpu:
+    lscpu:
+      description: CPU topology
+      command: |
+        lscpu
+  net:
+    routes:
+      description: Kernel routing table
+      command: |
+        ip route show

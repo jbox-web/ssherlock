@@ -1,0 +1,8 @@
+options:
+  wrap: true
+checks:
+  fromdir:
+    marker:
+      description: External-dir base variant
+      command: |
+        echo dir_base

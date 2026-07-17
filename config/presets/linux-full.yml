@@ -1,0 +1,323 @@
+inherit: linux
+options:
+  wrap: true
+checks:
+  ssh:
+    permit_root_login:
+      category: security
+      severity: high
+      expected: no (or absent = compiled default 'prohibit-password').
+      description: >-
+        Greps sshd_config for the PermitRootLogin directive (or reports the
+        compiled default) — determines whether direct root SSH login is allowed,
+        a key hardening control.
+      command: |
+        grep -i '^PermitRootLogin' /etc/ssh/sshd_config || echo 'default'
+    password_auth:
+      category: security
+      severity: high
+      expected: no — key-based authentication only.
+      description: >-
+        Greps sshd_config for the PasswordAuthentication directive (or reports
+        the compiled default) — confirms whether password-based SSH logins are
+        permitted instead of requiring key-based authentication.
+      command: |
+        grep -i '^PasswordAuthentication' /etc/ssh/sshd_config || echo 'default'
+    pubkey_auth:
+      category: security
+      severity: medium
+      expected: yes (or absent = compiled default enabled).
+      description: >-
+        Greps sshd_config for the PubkeyAuthentication directive (or reports
+        the compiled default) — verifies that public-key SSH authentication is
+        enabled as a stronger alternative to passwords.
+      command: |
+        grep -i '^PubkeyAuthentication' /etc/ssh/sshd_config || echo 'default'
+    allow_directives:
+      category: security
+      severity: low
+      expected: Access restricted via AllowUsers/AllowGroups where policy requires it.
+      description: >-
+        Greps sshd_config for AllowUsers, AllowGroups, DenyUsers and DenyGroups
+        directives — reveals whether SSH access is restricted to a specific set
+        of accounts or groups, narrowing the exposed attack surface.
+      command: |
+        grep -iE '^(AllowUsers|AllowGroups|DenyUsers|DenyGroups)' /etc/ssh/sshd_config || echo 'none'
+    failed_auth_24h:
+      category: security
+      severity: low
+      expected: Low count; a spike suggests brute-force attempts.
+      description: >-
+        Counts "Failed" entries in the SSH service journal over the last 24
+        hours — a rough indicator of brute-force or credential-stuffing attempts
+        against the SSH daemon.
+      command: |
+        journalctl -u ssh --since '24h ago' 2>/dev/null | grep -c 'Failed'
+    root_authorized_keys:
+      category: security
+      severity: medium
+      expected: Only known, reviewed keys — ideally none.
+      description: >-
+        Lists the public keys present in root's authorized_keys file — any
+        entry here grants direct key-based root login, so it should be tightly
+        controlled and reviewed.
+      command: |
+        awk '{print NR". "$NF}' /root/.ssh/authorized_keys 2>/dev/null || echo 'none'
+  security:
+    ufw:
+      category: security
+      severity: medium
+      expected: Active with a deliberate ruleset, or another firewall in use.
+      description: >-
+        Reports the UFW firewall's enabled/disabled state and its full rule
+        set with verbose output — shows whether host-based filtering is active
+        and what traffic it permits or blocks.
+      command: |
+        ufw status verbose 2>/dev/null || echo 'ufw not installed'
+    iptables:
+      category: security
+      description: >-
+        Lists the first 30 numbered rules of the iptables INPUT chain — shows
+        which inbound traffic is explicitly accepted, dropped or rejected at
+        the netfilter level.
+      command: |
+        iptables -L INPUT --line-numbers -n 2>/dev/null | head -30
+    nftables:
+      category: security
+      description: >-
+        Dumps the first 30 lines of the active nftables ruleset — the modern
+        replacement for iptables, showing tables, chains and rules governing
+        packet filtering on the host.
+      command: |
+        nft list ruleset 2>/dev/null | head -30 || echo 'nft unavailable'
+    listening_ports:
+      category: security
+      description: >-
+        Lists TCP sockets in listening state along with the owning process for
+        each — inventories every service exposed on the host, a baseline for
+        spotting unexpected or unauthorized daemons.
+      command: |
+        ss -tlnp
+    exposed_ports:
+      category: security
+      severity: medium
+      expected: No unexpected service reachable off-loopback.
+      description: >-
+        Filters listening TCP sockets to exclude loopback addresses — isolates
+        services reachable from outside the host, which are the ones most
+        relevant to external attack surface.
+      command: |
+        ss -tlnp | grep -v '127\.\|::1'
+    fail2ban:
+      category: security
+      severity: low
+      expected: Active where brute-force protection is expected.
+      description: >-
+        Reports the status of configured fail2ban jails — shows whether
+        automated banning of repeated failed login attempts is active and how
+        many hosts are currently banned.
+      command: |
+        fail2ban-client status 2>/dev/null || echo 'fail2ban not installed'
+    sudo_nopasswd:
+      category: security
+      severity: high
+      expected: No NOPASSWD grants unless explicitly justified.
+      description: >-
+        Searches sudoers and its drop-in files for NOPASSWD grants — surfaces
+        accounts that can escalate to root without a password, a common
+        privilege-escalation and lateral-movement risk.
+      command: |
+        grep -rhE 'NOPASSWD' /etc/sudoers /etc/sudoers.d/ 2>/dev/null || echo 'none'
+    suid:
+      category: security
+      severity: medium
+      expected: No unexpected setuid binaries outside standard directories.
+      description: >-
+        Finds SUID-bit files on the filesystem outside standard system
+        binary directories — highlights non-standard setuid executables that
+        could be abused for privilege escalation if misconfigured.
+      command: |
+        find / -perm -4000 -type f 2>/dev/null | grep -vE '(/usr/bin|/usr/sbin|/bin|/sbin)' | head -10 || echo 'none'
+  updates:
+    upgradable_count:
+      category: lifecycle
+      severity: medium
+      expected: Low; a large backlog indicates patch drift.
+      description: >-
+        Counts the packages listed as upgradable by apt — gives a quick
+        numeric indicator of how far the system has drifted from its available
+        patch level.
+      command: |
+        apt list --upgradable 2>/dev/null | grep -vc 'Listing'
+    upgradable_list:
+      category: lifecycle
+      description: >-
+        Lists up to 20 packages currently upgradable via apt — identifies
+        which specific software components are outdated and awaiting patches.
+      command: |
+        apt list --upgradable 2>/dev/null | grep -v 'Listing' | head -20
+    security_updates:
+      category: lifecycle
+      severity: high
+      expected: 0 pending security updates.
+      description: >-
+        Counts upgradable packages whose descriptions mention "security" —
+        estimates how many pending updates address known vulnerabilities
+        rather than routine feature or bug fixes.
+      command: |
+        apt list --upgradable 2>/dev/null | grep -ci security
+    reboot_required:
+      category: lifecycle
+      severity: medium
+      expected: No reboot required, else the running kernel is unpatched.
+      description: >-
+        Checks for the presence of /var/run/reboot-required and prints its
+        contents — flags kernel or library updates that have been installed
+        but not yet activated, leaving the running system unpatched.
+      command: |
+        [ -f /var/run/reboot-required ] && cat /var/run/reboot-required || echo 'no reboot required'
+    apt_last_update:
+      category: lifecycle
+      description: >-
+        Reports the last-modified timestamp of the apt package cache — shows
+        how recently the package index was refreshed, indicating whether
+        vulnerability and update visibility is stale.
+      command: |
+        stat -c '%y' /var/cache/apt/pkgcache.bin 2>/dev/null || echo 'N/A'
+  time:
+    ntp_chrony:
+      category: observability
+      severity: medium
+      expected: Clock synchronized (sane stratum, small offset).
+      description: >-
+        Reports chrony's tracking stratum, offset and leap status, falling
+        back to timedatectl's NTP sync state — confirms the system clock is
+        synchronized, which matters for log correlation and certificate validity.
+      command: |
+        chronyc tracking 2>/dev/null | grep -E 'Stratum|System time|Leap' || timedatectl | grep -E 'NTP|synchronized'
+    timezone:
+      category: observability
+      description: >-
+        Reports the configured system timezone and whether the hardware clock
+        is in local time or UTC — affects log timestamp interpretation and
+        cross-host event correlation during incident response.
+      command: |
+        timedatectl | grep -E 'Time zone|System clock'
+  storage_posture:
+    smart:
+      category: availability
+      severity: high
+      expected: Every disk reports PASSED/OK.
+      description: >-
+        Runs a SMART health check against each detected /dev/sd? and
+        /dev/nvme?n1 device and extracts the overall result — an early warning
+        signal for impending disk failure before data loss occurs.
+      command: |
+        for d in /dev/sd? /dev/nvme?n1; do [ -e $d ] && echo "== $d ==" && smartctl -H $d 2>/dev/null | grep -iE 'result|health'; done || echo 'smartctl N/A'
+    mdstat:
+      category: availability
+      severity: medium
+      expected: Arrays active/clean, none degraded or rebuilding.
+      description: >-
+        Filters /proc/mdstat for RAID-related lines — reports the state of
+        software RAID (mdadm) arrays, surfacing degraded or rebuilding arrays
+        that threaten data redundancy.
+      command: |
+        cat /proc/mdstat 2>/dev/null | grep -E 'md|raid' || echo 'no md RAID'
+  network_posture:
+    routes:
+      category: inventory
+      description: >-
+        Dumps the kernel's IP routing table — shows configured routes and
+        default gateways, useful for spotting misconfigured or unexpected
+        network paths that could enable traffic redirection.
+      command: |
+        ip route show
+    dns:
+      category: inventory
+      description: >-
+        Lists the active, non-comment entries in /etc/resolv.conf — reveals
+        which DNS resolvers the host trusts, relevant to detecting DNS
+        hijacking or unauthorized resolver changes.
+      command: |
+        grep -v '^#' /etc/resolv.conf
+    established:
+      category: inventory
+      description: >-
+        Lists up to 20 established TCP connections excluding loopback
+        addresses — surfaces active outbound and inbound sessions with remote
+        hosts, useful for spotting unexpected or unauthorized network activity.
+      command: |
+        ss -tnp state established | grep -v '127\.\|::1' | head -20
+    arp:
+      category: inventory
+      description: >-
+        Dumps the kernel's ARP/neighbor table — maps IP addresses to MAC
+        addresses on the local network segment, useful for detecting spoofed
+        or unexpected devices sharing the same broadcast domain.
+      command: |
+        ip neigh show
+  logs:
+    journald:
+      category: observability
+      description: >-
+        Greps journald.conf for Storage, SystemMaxUse and MaxRetentionSec
+        settings, falling back to defaults — shows whether system logs are
+        persisted to disk and for how long, affecting forensic retention.
+      command: |
+        grep -E 'Storage|SystemMaxUse|MaxRetentionSec' /etc/systemd/journald.conf 2>/dev/null || echo 'default config'
+    syslog:
+      category: observability
+      description: >-
+        Checks whether rsyslog or syslog-ng is actively running — confirms
+        that a traditional syslog daemon is capturing and forwarding log
+        events alongside or instead of the systemd journal.
+      command: |
+        systemctl is-active rsyslog syslog-ng 2>/dev/null | head -2
+    journal_size:
+      category: observability
+      description: >-
+        Reports the disk space currently consumed by the systemd journal —
+        helps anticipate log rotation needs and detect abnormal log growth
+        that could indicate excessive errors or an attack in progress.
+      command: |
+        journalctl --disk-usage 2>/dev/null
+    errors_7d:
+      category: observability
+      severity: low
+      expected: No abnormal error volume.
+      description: >-
+        Counts journal entries at error priority or higher over the last 7
+        days — a coarse health signal that can reveal recurring failures,
+        misconfigurations or ongoing attacks worth deeper investigation.
+      command: |
+        journalctl -p err --since '7 days ago' 2>/dev/null | wc -l
+  agents:
+    monitoring:
+      category: observability
+      severity: low
+      expected: At least one monitoring agent active.
+      description: >-
+        Checks the active/inactive systemd status of common monitoring agents
+        (netdata, Prometheus node exporter, Zabbix, Datadog, Telegraf, Icinga2,
+        Munin) — confirms whether the host is being observed for anomalies.
+      command: |
+        for a in netdata prometheus-node-exporter zabbix-agent datadog-agent telegraf icinga2 munin-node; do echo "$a: $(systemctl is-active $a 2>/dev/null || echo inactive)"; done
+    backup_tools:
+      category: observability
+      severity: medium
+      expected: A backup tool present.
+      description: >-
+        Checks for the presence of common backup utilities (rsync,
+        rdiff-backup, restic, borg, dirvish) — confirms whether the host has
+        the tooling in place to support a data backup and recovery strategy.
+      command: |
+        which rsync rdiff-backup restic borg dirvish 2>/dev/null || echo 'none detected'
+    config_mgmt:
+      category: observability
+      description: >-
+        Checks for the presence of common configuration management and IaC
+        tools (Ansible, Terraform, Puppet, Chef, Salt, git) — indicates whether
+        the host's configuration is managed reproducibly or drifted manually.
+      command: |
+        which ansible terraform puppet chef-client salt-minion git 2>/dev/null || echo 'none detected'

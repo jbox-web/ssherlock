@@ -1,0 +1,11 @@
+Lint/NotNil:
+  Enabled: true
+
+# Short block parameters (s, k, v, r) are idiomatic Crystal; allow them.
+Naming/BlockParameterName:
+  MinNameLength: 1
+
+# Server exposes `sudo`/`wrap` as plain data attributes, not predicates, so a
+# `getter?`/`?`-suffixed name would be inconsistent with the other getters.
+Naming/QueryBoolMethods:
+  Enabled: false

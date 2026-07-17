@@ -1,0 +1,169 @@
+options:
+  wrap: false
+checks:
+  cpu:
+    cpu_global:
+      category: inventory
+      description: >-
+        Reports the ESXi host's global CPU package, core and thread counts along
+        with hyperthreading state — establishes the hypervisor's physical compute
+        capacity for consolidation planning.
+      command: |
+        esxcli hardware cpu global get
+    cpu_list:
+      category: inventory
+      description: >-
+        Lists per-physical-CPU details such as core ID, package, description and
+        clock speed for the first 30 logical processors — surfaces CPU topology
+        and heterogeneity for capacity and licensing checks.
+      command: |
+        esxcli hardware cpu list | head -30
+    cpuid_pcpu0:
+      category: inventory
+      description: >-
+        Dumps the raw CPUID feature bits reported by VSI for physical CPU 0 —
+        used to confirm processor generation and instruction-set support relevant
+        to vMotion compatibility and EVC baselines.
+      command: |
+        vsish -e cat /hardware/cpu/cpuList/0 2>/dev/null || echo 'vsish unavailable'
+  memory:
+    mem_get:
+      category: inventory
+      description: >-
+        Reports total physical memory installed and memory currently reserved by
+        the VMkernel on the ESXi host — a baseline figure for memory overcommit
+        and consolidation ratio calculations.
+      command: |
+        esxcli hardware memory get
+    dimms:
+      category: inventory
+      description: >-
+        Extracts installed memory DIMM size, speed, type and slot locator from the
+        SMBIOS table — validates physical memory configuration and identifies
+        mismatched or underpopulated memory channels.
+      command: |
+        smbiosDump 2>/dev/null | grep -A18 'Memory Device' | grep -iE 'Memory Device|Size|Speed|Type|Locator|Manufacturer' || echo 'smbiosDump unavailable'
+  hardware:
+    platform:
+      category: inventory
+      description: >-
+        Reports the host's platform vendor, product model and serial number —
+        identifies the physical server for asset inventory, warranty tracking and
+        hardware compatibility list verification.
+      command: |
+        esxcli hardware platform get
+  storage:
+    filesystems:
+      category: capacity
+      severity: medium
+      expected: Datastores not near full.
+      description: >-
+        Lists mounted datastore filesystems with their type, UUID, capacity and
+        free space — inventories the host's storage backing for capacity planning
+        and orphaned-datastore detection.
+      command: |
+        esxcli storage filesystem list
+    nfs:
+      category: inventory
+      description: >-
+        Lists configured NFS datastore mounts including server, remote path and
+        mount state — verifies network storage connectivity and identifies stale
+        or disconnected NFS shares.
+      command: |
+        esxcli storage nfs list 2>/dev/null || echo 'no NFS datastore'
+    iscsi_adapter:
+      category: inventory
+      description: >-
+        Lists configured software and hardware iSCSI adapters and their driver
+        association — confirms whether the host relies on iSCSI-based block
+        storage requiring dedicated network and security review.
+      command: |
+        esxcli iscsi adapter list 2>/dev/null || echo 'no iscsi adapter'
+    iscsi_session:
+      category: inventory
+      description: >-
+        Lists active iSCSI sessions along with their target IQNs and connection
+        state — validates that expected storage targets are connected and flags
+        unexpected or dangling sessions.
+      command: |
+        esxcli iscsi session list 2>/dev/null || echo 'no iscsi session'
+  network:
+    nic_list:
+      category: inventory
+      description: >-
+        Inventories physical network adapters with their link state, speed,
+        duplex and driver — establishes the host's network uplink capacity and
+        surfaces down or misconfigured NICs.
+      command: |
+        esxcli network nic list
+    vswitch:
+      category: inventory
+      description: >-
+        Reports standard virtual switch configuration including uplinks, port
+        count and MTU — documents the host's virtual networking layout for
+        segmentation and redundancy review.
+      command: |
+        esxcli network vswitch standard list 2>/dev/null || echo 'no standard vSwitch'
+    vmknic:
+      category: inventory
+      description: >-
+        Lists VMkernel network interfaces with their assigned IP addresses, netmasks
+        and enabled services — identifies management, vMotion and storage traffic
+        interfaces for network segmentation audits.
+      command: |
+        esxcli network ip interface list
+  version:
+    vmware:
+      category: lifecycle
+      description: >-
+        Reports the ESXi product name, version and build number — the primary
+        fact for patch-level compliance, end-of-support tracking and vulnerability
+        exposure assessment.
+      command: |
+        vmware -vl
+    profile:
+      category: lifecycle
+      description: >-
+        Reports the installed image profile name and its acceptance level (VMware
+        certified, partner, community or tech preview) — flags hosts running
+        unsupported or unsigned software bundles.
+      command: |
+        esxcli software profile get
+  mitigations:
+    ht_mitigation:
+      category: security
+      severity: high
+      expected: Enabled (not FALSE).
+      description: >-
+        Reports the kernel setting controlling the hyperthreading side-channel
+        mitigation (e.g. for L1TF/MDS) — confirms whether the host is hardened
+        against speculative-execution vulnerabilities across sibling threads.
+      command: |
+        esxcli system settings kernel list -o hyperthreadingMitigation
+    ht_mitigation_intravm:
+      category: security
+      severity: medium
+      expected: Enabled where intra-VM isolation is required.
+      description: >-
+        Reports the kernel setting controlling intra-VM hyperthreading mitigation,
+        which scheduling-isolates vCPUs of the same VM on sibling threads — checks
+        exposure to same-VM speculative-execution side channels.
+      command: |
+        esxcli system settings kernel list -o hyperthreadingMitigationIntraVM
+  guests:
+    vms:
+      category: capacity
+      description: >-
+        Lists all virtual machines registered on the host with their internal
+        vmid, display name and config path — the base inventory used to enumerate
+        guests for further per-VM inspection.
+      command: |
+        vim-cmd vmsvc/getallvms
+    vms_summary:
+      category: capacity
+      description: >-
+        Iterates every registered VM to report its display name, configured
+        memory size, vCPU count and current power state — a consolidated guest
+        inventory for capacity and utilization audits.
+      command: |
+        for id in $(vim-cmd vmsvc/getallvms 2>/dev/null | grep -oE "^[0-9]+"); do echo "== vmid $id"; vim-cmd vmsvc/get.summary $id 2>/dev/null | grep -iE "name =|memorySizeMB|numCpu|powerState"; done

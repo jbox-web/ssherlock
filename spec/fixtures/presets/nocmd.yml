@@ -1,0 +1,6 @@
+options:
+  wrap: false
+checks:
+  cpu:
+    broken:
+      description: Missing command on purpose

@@ -1,0 +1,103 @@
+[tools]
+crystal = "1.20.3"
+
+[vars]
+app_name = "ssherlock"
+source_file = "src/ssherlock.cr"
+# OUTPUT_FILE defaults to bin/<app_name> but can be overridden via the env var
+# (e.g. OUTPUT_FILE=bin/ssherlock-darwin-arm64 mise release:build).
+OUTPUT_FILE = "{% if get_env(name='OUTPUT_FILE', default='false') == 'false' %}bin/{{vars.app_name}}{% else %}{{ get_env(name='OUTPUT_FILE') }}{% endif %}"
+# Add --verbose only in an interactive terminal (TTY check)
+SPEC_OPTS = "{% if exec(command='(tty -s && echo true) || echo false') == 'true' %}--verbose{% endif %}"
+
+[tasks."dev:deps"]
+description = "Install dependencies (also builds bin/ameba)"
+run = "shards install"
+
+# Assemble the licenses/ folder baked into the binary. Needs lib/ (the shard
+# LICENSE files), so it depends on dev:deps.
+[tasks."dev:licenses"]
+description = "Assemble the licenses/ folder baked into the binary"
+depends = ["dev:deps"]
+run = "bash scripts/harvest-licenses.sh"
+
+# dev:build/dev:spec/dev:spec-mt/dev:docs all compile the app, which bakes
+# config/presets and licenses/ at compile time via baked_file_system — so they
+# depend on dev:licenses (which itself depends on dev:deps).
+[tasks."dev:build"]
+description = "Compile the development binary"
+depends = ["dev:licenses"]
+run = "crystal build --threads 4 -o {{vars.OUTPUT_FILE}} {{vars.source_file}}"
+
+[tasks."dev:format"]
+description = "Format the source"
+run = "crystal tool format src/ spec/"
+
+[tasks."dev:format-check"]
+description = "Check formatting"
+run = "crystal tool format --check"
+
+[tasks."dev:ameba"]
+description = "Run static code analysis"
+run = "bin/ameba"
+
+[tasks."dev:spec"]
+description = "Run the unit spec suite"
+depends = ["dev:licenses"]
+run = "crystal spec --error-trace {{vars.SPEC_OPTS}}"
+
+[tasks."dev:spec-mt"]
+description = "Run the unit spec suite multi-threaded (fiber-safety gate)"
+depends = ["dev:licenses"]
+run = "crystal spec --error-trace -Dpreview_mt {{vars.SPEC_OPTS}}"
+env = { CRYSTAL_WORKERS = "4" }
+
+[tasks."dev:docs"]
+description = "Build the API docs (fails on doc-comment / compile errors)"
+depends = ["dev:licenses"]
+# Output to docs/api (git-ignored) so it doesn't clobber docs/superpowers.
+run = "crystal docs -o docs/api"
+
+[tasks."dev:check"]
+description = "Format-check, lint and unit-test in one shot"
+run = "mise dev:format-check && mise dev:ameba && mise dev:spec && mise dev:spec-mt"
+
+# TODO: remove when https://github.com/crystal-lang/crystal/issues/16746 is fixed
+[tasks."dev:fix-shards-command"]
+description = "Fix missing shards command on macOS"
+run = "cp $HOME/.local/share/mise/installs/crystal/{{tools.crystal.version}}/embedded/bin/shards $HOME/.local/share/mise/installs/crystal/{{tools.crystal.version}}/bin/"
+
+[tasks."dev:clean"]
+description = "Remove build artifacts"
+run = "rm -rf bin/ssherlock lib/ licenses/"
+
+[tasks."release:deps"]
+description = "Install production dependencies"
+run = "shards install --production"
+
+# The release binary also bakes config/presets and licenses/ at compile time,
+# so licenses/ must be generated first (needs lib/ from release:deps).
+[tasks."release:licenses"]
+description = "Assemble the licenses/ folder for the release build"
+depends = ["release:deps"]
+run = "bash scripts/harvest-licenses.sh"
+
+[tasks."release:build"]
+description = "Compile the release binary (+ sha256)"
+depends = ["release:licenses"]
+run = '''
+crystal build --threads 4 --release --error-trace -o {{vars.OUTPUT_FILE}} {{vars.source_file}}
+cd bin; for f in *; do shasum --algorithm 256 "$f" > "$f.sha256"; done
+'''
+
+[tasks."release:static"]
+description = "Build the static musl binaries (linux amd64+arm64) via docker buildx"
+run = '''
+docker buildx bake binary
+# buildx writes one sub-dir per platform; flatten to packages/ and (re)hash.
+mv packages/linux_arm64/ssherlock-linux-arm64 packages/
+mv packages/linux_amd64/ssherlock-linux-amd64 packages/
+rmdir packages/linux_arm64/ packages/linux_amd64/
+rm -f packages/*.sha256
+cd packages; for f in *; do shasum --algorithm 256 "$f" > "$f.sha256"; done
+'''

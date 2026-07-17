@@ -1,0 +1,20 @@
+output_dir: /tmp/audit_test
+concurrency: 4
+defaults:
+  inherit: base
+  ssh:
+    user: root
+    key: ~/.ssh/id_rsa
+    timeout: 10
+  cmd_timeout: 20
+  sudo: false
+servers:
+  - { host: h1, label: node1 }
+  - { host: h2, label: node2, inherit: child, ssh: { user: bar, timeout: 60 } }
+overrides:
+  base:
+    cpu:
+      extra_probe:
+        description: All-logical-CPU count
+        command: |
+          nproc --all

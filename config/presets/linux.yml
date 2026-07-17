@@ -1,0 +1,183 @@
+options:
+  wrap: true
+checks:
+  cpu:
+    lscpu:
+      category: inventory
+      description: >-
+        Reports the CPU architecture, socket/core/thread topology and exposed
+        instruction-set flags — used to inventory compute capacity and spot
+        heterogeneous nodes in a fleet.
+      command: |
+        lscpu
+    cpuinfo:
+      category: inventory
+      description: >-
+        Extracts the CPU model name, microcode revision, feature flags and
+        known hardware bugs from /proc/cpuinfo — cross-checks lscpu output and
+        surfaces outdated microcode across sockets.
+      command: |
+        grep -E 'model name|microcode|flags|bugs' /proc/cpuinfo | sort -u
+    vulnerabilities:
+      category: security
+      severity: high
+      expected: No line reports 'Vulnerable'; every vulnerability shows a mitigation or 'Not affected'.
+      description: >-
+        Dumps the kernel's per-CPU mitigation status for known silicon
+        vulnerabilities (Spectre, Meltdown, etc.) — flags hosts running with
+        mitigations disabled or exposed to unpatched hardware flaws.
+      command: |
+        grep -r . /sys/devices/system/cpu/vulnerabilities/ 2>/dev/null
+  memory:
+    free:
+      category: capacity
+      description: >-
+        Summarizes total, used, free and cached memory alongside swap usage
+        in human-readable units — a quick capacity and memory-pressure check
+        for a host.
+      command: |
+        free -h
+    dmidecode:
+      category: inventory
+      description: >-
+        Reads DMI/SMBIOS data for each populated memory module, including
+        size, speed and manufacturer — used to inventory installed RAM and
+        detect mismatched or under-populated DIMM slots.
+      command: |
+        dmidecode -t memory
+  hardware:
+    system:
+      category: inventory
+      description: >-
+        Reads DMI/SMBIOS system-level identification such as manufacturer,
+        product name, version and serial number — used to inventory hardware
+        assets and confirm host identity against inventory records.
+      command: |
+        dmidecode -t system
+  storage:
+    lsblk:
+      category: inventory
+      description: >-
+        Lists top-level block devices with their size, rotational flag, type
+        and model — used to inventory attached disks and distinguish SSD
+        from spinning-media capacity.
+      command: |
+        lsblk -d -o NAME,SIZE,ROTA,TYPE,MODEL
+    df:
+      category: capacity
+      severity: medium
+      expected: No mounted filesystem near capacity; keep headroom on /, /var and data volumes.
+      description: >-
+        Reports disk space usage and filesystem type per mounted volume,
+        excluding tmpfs and devtmpfs — used to catch filesystems nearing
+        capacity before they cause outages.
+      command: |
+        df -hT -x tmpfs -x devtmpfs
+    mounts_net:
+      category: inventory
+      description: >-
+        Lists currently mounted NFS or iSCSI network filesystems, or reports
+        none present — used to identify external storage dependencies and
+        potential single points of failure.
+      command: |
+        mount | grep -iE 'nfs|iscsi' || echo 'no nfs/iscsi mount'
+    iscsi_sessions:
+      category: inventory
+      description: >-
+        Lists active iSCSI initiator sessions, or reports none present — used
+        to confirm expected SAN connectivity and detect unexpected or missing
+        storage sessions.
+      command: |
+        iscsiadm -m session 2>/dev/null || echo 'no iscsi session'
+    multipath:
+      category: availability
+      description: >-
+        Reports multipath device topology and path health, or notes that
+        multipathing is absent or inactive — used to verify storage path
+        redundancy on hosts expected to have it.
+      command: |
+        multipath -ll 2>/dev/null || echo 'multipath absent/inactive'
+  network:
+    ip_addr:
+      category: inventory
+      description: >-
+        Lists network interfaces with their addresses in brief form — used
+        to quickly inventory configured IPs and detect unexpected or missing
+        interfaces.
+      command: |
+        ip -br addr
+    link_speed:
+      category: inventory
+      description: >-
+        Reports negotiated link speed and operational state for every
+        network interface — used to detect degraded links (e.g. a NIC
+        stuck at 100Mb/s) or unexpectedly down interfaces.
+      command: |
+        for i in /sys/class/net/*/; do n=$(basename "$i"); echo "$n: $(cat "$i/speed" 2>/dev/null)Mb/s $(cat "$i/operstate" 2>/dev/null)"; done
+    bonding:
+      category: availability
+      description: >-
+        Dumps kernel bonding driver status for each bonded interface, or
+        reports none configured — used to verify NIC teaming redundancy and
+        active slave interfaces.
+      command: |
+        cat /proc/net/bonding/* 2>/dev/null || echo 'no bonding'
+    interfaces_cfg:
+      category: inventory
+      description: >-
+        Prints the legacy /etc/network/interfaces file and lists any netplan
+        configuration files present — used to review the declared network
+        configuration behind the live interface state.
+      command: |
+        cat /etc/network/interfaces 2>/dev/null; ls /etc/netplan/ 2>/dev/null
+  system:
+    os_release:
+      category: inventory
+      description: >-
+        Extracts the operating system name and version from /etc/os-release
+        — used to inventory OS distribution and version spread across a
+        fleet.
+      command: |
+        cat /etc/os-release | grep -E '^(NAME|VERSION)='
+    kernel:
+      category: lifecycle
+      description: >-
+        Reports the currently running kernel release string — used to track
+        kernel version drift and confirm whether security patches have been
+        applied and activated via reboot.
+      command: |
+        uname -r
+    uptime:
+      category: inventory
+      description: >-
+        Reports system uptime in human-readable form — used to spot hosts
+        that have not rebooted in a long time and may be running stale
+        kernels or pending updates.
+      command: |
+        uptime -p
+    vip_keepalived:
+      category: availability
+      description: >-
+        Reports whether the keepalived service is active and lists any
+        secondary or /32 addresses on the host — used to verify VRRP-managed
+        virtual IP failover configuration.
+      command: |
+        systemctl is-active keepalived 2>/dev/null; ip -br addr | grep -iE 'secondary|/32' || echo 'no /32 VIP visible'
+  services:
+    running:
+      category: inventory
+      description: >-
+        Lists the first 40 currently running systemd service units — used to
+        get a quick snapshot of active workloads and spot unexpected
+        services on a host.
+      command: |
+        systemctl list-units --type=service --state=running --no-pager --no-legend 2>/dev/null | awk '{print $1}' | head -40
+    packages:
+      category: lifecycle
+      description: >-
+        Lists installed database, DNS, NTP and high-availability packages
+        (MariaDB, MySQL, PostgreSQL, BIND, dnsmasq, Unbound, chrony, NTP,
+        keepalived) with their versions — used to inventory key infrastructure
+        software.
+      command: |
+        dpkg -l 2>/dev/null | awk '/^ii/ && $2 ~ /mariadb|mysql|postgres|bind9|dnsmasq|unbound|chrony|^ntp|keepalived/ {print $2, $3}' || echo 'dpkg unavailable'

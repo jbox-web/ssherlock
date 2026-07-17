@@ -1,0 +1,21 @@
+# kind | name | source (on-disk LICENSE path for shards; SPDX id for clib/runtime)
+#
+# Everything the redistributed static binary carries: shard licenses copied from
+# lib/<name>/LICENSE, and the licenses of the C libraries linked statically into
+# the musl build (see Dockerfile's static apk packages) grouped by SPDX id from
+# licenses-spdx/. Assembled into licenses/ (baked into the binary) by
+# scripts/harvest-licenses.sh.
+shard   | ssh2              | lib/ssh2/LICENSE
+shard   | admiral           | lib/admiral/LICENSE
+shard   | baked_file_system | lib/baked_file_system/LICENSE
+shard   | crystal-env       | lib/crystal-env/LICENSE
+clib    | libssh2           | BSD-3-Clause
+clib    | openssl           | Apache-2.0
+clib    | pcre2             | BSD-3-Clause
+clib    | libyaml           | MIT
+clib    | zlib              | Zlib
+clib    | boehm-gc          | Boehm-GC
+clib    | musl              | MIT
+clib    | libgcc            | GCC-runtime-exception
+runtime | crystal           | Apache-2.0
+project | ssherlock      | LICENSE

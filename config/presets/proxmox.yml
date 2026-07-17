@@ -1,0 +1,221 @@
+options:
+  wrap: true
+checks:
+  cpu:
+    lscpu:
+      category: inventory
+      description: >-
+        Reports the CPU architecture, socket/core/thread topology and exposed
+        instruction-set flags — used to inventory compute capacity and spot
+        heterogeneous nodes in a cluster.
+      command: |
+        lscpu
+    cpuinfo:
+      category: inventory
+      description: >-
+        Extracts CPU model name, microcode revision, feature flags and known
+        hardware bugs directly from /proc/cpuinfo — helps correlate CPU
+        generation with available mitigations and virtualization features.
+      command: |
+        grep -E 'model name|microcode|flags|bugs' /proc/cpuinfo | sort -u
+    vulnerabilities:
+      category: security
+      severity: high
+      expected: No line reports 'Vulnerable'; every vulnerability shows a mitigation or 'Not affected'.
+      description: >-
+        Lists the kernel-reported mitigation status for each known CPU
+        hardware vulnerability (Spectre, Meltdown, MDS, etc.) — confirms
+        whether the host is patched and mitigations are active.
+      command: |
+        grep -r . /sys/devices/system/cpu/vulnerabilities/ 2>/dev/null
+  memory:
+    free:
+      category: capacity
+      description: >-
+        Summarizes total, used, free and available RAM alongside swap usage
+        — a quick check for memory pressure and whether swap is being relied
+        upon on a hypervisor node.
+      command: |
+        free -h
+    dmidecode:
+      category: inventory
+      description: >-
+        Enumerates physically installed memory modules with their size,
+        speed, type and populated slots — used to verify RAM capacity,
+        detect mismatched DIMMs and plan upgrades.
+      command: |
+        dmidecode -t memory
+  hardware:
+    system:
+      category: inventory
+      description: >-
+        Reads the system vendor, product model, version and serial number
+        from SMBIOS/DMI data — identifies the physical host for asset
+        tracking and warranty or support lookups.
+      command: |
+        dmidecode -t system
+  storage:
+    lsblk:
+      category: inventory
+      description: >-
+        Lists block devices with their size, rotational flag and model
+        name — distinguishes SSD from spinning disks and inventories
+        physical storage attached to the host.
+      command: |
+        lsblk -d -o NAME,SIZE,ROTA,TYPE,MODEL
+    pvesm_status:
+      category: capacity
+      severity: medium
+      expected: Configured storages active, none near full.
+      description: >-
+        Queries Proxmox storage pool status, showing which configured
+        storages are active and their available/used capacity — surfaces
+        storage outages or near-full pools.
+      command: |
+        pvesm status
+    storage_cfg:
+      category: inventory
+      description: >-
+        Dumps the raw Proxmox storage.cfg defining every configured storage
+        backend (type, path, content types, options) — the authoritative
+        source for how storage is provisioned cluster-wide.
+      command: |
+        cat /etc/pve/storage.cfg 2>/dev/null
+    mounts_net:
+      category: inventory
+      description: >-
+        Filters active mounts for NFS or iSCSI filesystems — verifies that
+        expected network storage is actually mounted and reveals reliance
+        on external storage backends.
+      command: |
+        mount | grep -iE 'nfs|iscsi' || echo 'no nfs/iscsi mount'
+    iscsi_sessions:
+      category: inventory
+      description: >-
+        Lists active iSCSI initiator sessions and their target/portal
+        details — confirms connectivity to SAN targets and helps diagnose
+        stale or missing iSCSI paths.
+      command: |
+        iscsiadm -m session 2>/dev/null || echo 'no iscsi session'
+    multipath:
+      category: availability
+      description: >-
+        Lists active device-mapper multipath topology (paths, policies,
+        state), or reports it absent — reveals SAN/iSCSI path redundancy
+        and single points of failure on shared storage.
+      command: |
+        multipath -ll 2>/dev/null || echo 'multipath absent/inactive'
+  network:
+    ip_addr:
+      category: inventory
+      description: >-
+        Shows every network interface with its assigned IP addresses in
+        brief form — establishes the host's network identity and detects
+        unexpected or missing interfaces.
+      command: |
+        ip -br addr
+    link_speed:
+      category: inventory
+      description: >-
+        Iterates each network interface to report its negotiated link
+        speed and operational state — flags interfaces stuck at a lower
+        speed or unexpectedly down, a common cause of degraded throughput.
+      command: |
+        for i in /sys/class/net/*/; do n=$(basename "$i"); echo "$n: $(cat "$i/speed" 2>/dev/null)Mb/s $(cat "$i/operstate" 2>/dev/null)"; done
+    bonding:
+      category: availability
+      description: >-
+        Dumps the kernel bonding driver state for any configured bond
+        interfaces, including mode and slave status — verifies NIC
+        teaming redundancy and detects a failed bond member.
+      command: |
+        cat /proc/net/bonding/* 2>/dev/null || echo 'no bonding'
+    interfaces_cfg:
+      category: inventory
+      description: >-
+        Prints the Debian /etc/network/interfaces file defining bridges,
+        bonds and VLANs — the source of truth for the intended network
+        layout, useful to compare against runtime state.
+      command: |
+        cat /etc/network/interfaces 2>/dev/null
+  hypervisor:
+    pveversion:
+      category: lifecycle
+      description: >-
+        Reports the installed Proxmox VE version alongside the exact
+        versions of all pve-related packages — essential for spotting
+        outdated or mismatched components before an upgrade.
+      command: |
+        pveversion -v
+    kernel:
+      category: lifecycle
+      description: >-
+        Prints the currently running Linux kernel release — used to
+        confirm the host has booted the expected kernel after an update
+        or to correlate with known kernel-specific issues.
+      command: |
+        uname -r
+  cluster:
+    pvecm_status:
+      category: availability
+      severity: high
+      expected: Node in the cluster with the expected members present.
+      description: >-
+        Shows Proxmox cluster membership, node list and quorum summary,
+        or reports that the node is standalone — the primary check for
+        cluster health and node visibility.
+      command: |
+        pvecm status 2>/dev/null || echo 'node not in cluster'
+    quorum:
+      category: availability
+      severity: high
+      expected: Cluster is quorate.
+      description: >-
+        Queries the Corosync quorum provider for the current quorum state
+        and vote count — a cluster without quorum will block most Proxmox
+        management operations, so this catches split-brain risk early.
+      command: |
+        corosync-quorumtool -s 2>/dev/null || echo 'corosync unavailable'
+    ha_status:
+      category: availability
+      severity: medium
+      expected: HA healthy where configured.
+      description: >-
+        Reports the state of the Proxmox HA manager, including managed
+        resources and their current status, or that HA is unconfigured —
+        confirms whether automatic failover is actually active.
+      command: |
+        ha-manager status 2>/dev/null || echo 'HA not configured'
+  guests:
+    qm_list:
+      category: capacity
+      description: >-
+        Lists every QEMU/KVM virtual machine on the node with its ID,
+        name, status and memory allocation — the baseline inventory of
+        VM workloads running on the host.
+      command: |
+        qm list 2>/dev/null || echo 'no VM'
+    pct_list:
+      category: capacity
+      description: >-
+        Lists every LXC container on the node with its ID, status and
+        name — the baseline inventory of containerized workloads
+        alongside full virtual machines.
+      command: |
+        pct list 2>/dev/null || echo 'no container'
+    vm_conf:
+      category: capacity
+      description: >-
+        Greps every VM configuration file for name, core/socket count,
+        memory and balloon settings — a fast way to audit resource
+        sizing and overcommitment across all virtual machines.
+      command: |
+        grep -HE '^(name|cores|sockets|memory|balloon):' /etc/pve/qemu-server/*.conf 2>/dev/null || echo 'no VM'
+    ct_conf:
+      category: capacity
+      description: >-
+        Greps every LXC configuration file for hostname, core count and
+        memory settings — audits resource sizing across containers to
+        spot oversized or undersized allocations.
+      command: |
+        grep -HE '^(hostname|cores|memory):' /etc/pve/lxc/*.conf 2>/dev/null || echo 'no container'
