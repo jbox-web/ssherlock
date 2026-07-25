@@ -22,8 +22,8 @@ depends = ["dev:deps"]
 run = "bash scripts/harvest-licenses.sh"
 
 # dev:build/dev:spec/dev:spec-mt/dev:docs all compile the app, which bakes
-# config/presets and licenses/ at compile time via baked_file_system — so they
-# depend on dev:licenses (which itself depends on dev:deps).
+# config/presets, skills/ and licenses/ at compile time via baked_file_system —
+# so they depend on dev:licenses (which itself depends on dev:deps).
 [tasks."dev:build"]
 description = "Compile the development binary"
 depends = ["dev:licenses"]
@@ -75,8 +75,9 @@ run = "rm -rf bin/ssherlock lib/ licenses/"
 description = "Install production dependencies"
 run = "shards install --production"
 
-# The release binary also bakes config/presets and licenses/ at compile time,
-# so licenses/ must be generated first (needs lib/ from release:deps).
+# The release binary bakes config/presets, skills/ and licenses/ at compile
+# time. The first two already exist in-tree; licenses/ is generated, so it must
+# be assembled first (needs lib/ from release:deps).
 [tasks."release:licenses"]
 description = "Assemble the licenses/ folder for the release build"
 depends = ["release:deps"]
