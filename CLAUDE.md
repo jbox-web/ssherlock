@@ -89,8 +89,8 @@ it in sync.
 - **Baked files have a shared read position.** Read baked content through
   `BakedFileSystem.get(path).gets_to_end`, not by re-reading a handle from
   `.files` — a consumed `files` handle yields empty on the next read.
-- **`ssh2` is pinned to a feature branch** (`n-rodriguez/ssh2.cr`,
-  `feature/known-hosts-helper`) for the known-hosts helper.
+- **`ssh2` tracks upstream** (`spider-gazelle/ssh2.cr`, `~> 1.8.0`), which now
+  carries the known-hosts helper `HostKeyPolicy` relies on.
 - **A frozen SSH read parks a fiber** until the host disconnects; the
   caller-side guard is `cmd_timeout + 5s`, and server-side `timeout` wrapping
   (`wrap: true`) is the primary guard. `wrap: false` presets (ESXi) rely on the
