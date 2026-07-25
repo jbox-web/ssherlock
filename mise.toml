@@ -1,5 +1,9 @@
+[settings]
+aqua.registries = ["https://github.com/jbox-web/aqua-registry"]
+
 [tools]
 crystal = "1.20.3"
+"aqua:elbywan/crystalline" = "0.18.0"
 
 [vars]
 app_name = "ssherlock"
@@ -39,7 +43,7 @@ run = "crystal tool format --check"
 
 [tasks."dev:ameba"]
 description = "Run static code analysis"
-run = "bin/ameba"
+run = "timeout 180 bin/ameba"
 
 [tasks."dev:spec"]
 description = "Run the unit spec suite"
