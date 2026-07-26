@@ -3,6 +3,8 @@ aqua.registries = ["https://github.com/jbox-web/aqua-registry"]
 
 [tools]
 crystal = "1.20.3"
+# LSP server, workstation-only. It ships no linux/arm64 binary, so the CI's
+# arm64 job neutralises it via MISE_DISABLE_TOOLS (see .github/workflows/ci.yml).
 "aqua:elbywan/crystalline" = "0.18.0"
 
 [vars]

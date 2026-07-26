@@ -92,6 +92,10 @@ jobs:
 
   test_linux_arm64:
     runs-on: ubuntu-24.04-arm
+    # crystalline (the LSP server, a dev-workstation tool the CI never uses)
+    # ships no linux/arm64 binary, so `mise install` would abort here.
+    env:
+      MISE_DISABLE_TOOLS: "aqua:elbywan/crystalline"
     steps:
       - name: Git checkout
         uses: actions/checkout@v7
@@ -131,6 +135,11 @@ jobs:
 
       - name: Install dependencies
         run: shards install --skip-postinstall --skip-executables
+
+      # This job bypasses mise, so the licenses/ folder baked at compile time
+      # has to be assembled by hand (mise dev:licenses does it elsewhere).
+      - name: Assemble the baked licenses folder
+        run: bash scripts/harvest-licenses.sh
 
       - name: Run tests
         run: crystal spec --error-trace
