@@ -15,7 +15,11 @@
 # libssh2 comes from the ssh2 shard. Versions and licenses as apk records them
 # in that image: libssh2 1.11.1 BSD-3-Clause, openssl 3.5.9 Apache-2.0, yaml
 # 0.2.5 MIT, pcre2 10.49 BSD-3-Clause, zlib 1.4 Zlib, musl 1.2.6 MIT, gc 8.2.12
-# Boehm-GC. Check the link line again when a stdlib module or a C binding is
+# Boehm-GC. The darwin binaries link Homebrew's openssl@4 (4.1.0, Apache-2.0)
+# and libssh2 (1.11.1, BSD-3-Clause) statically, and libgc, pcre2 and libyaml
+# from the compiler mise installs; zlib and libiconv come from macOS itself.
+# They embed the same notices, musl and libgcc included, which they do not
+# link. Check the link line again when a stdlib module or a C binding is
 # added, or the image moves.
 #
 # MIT, BSD-3-Clause and zlib require the copyright notice to be reproduced,

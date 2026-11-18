@@ -146,9 +146,10 @@ depends = ["dev:licenses"]
 run = "rm -rf docs && crystal doc"
 
 # Assembles the notices a statically linked binary has to carry, from
-# licenses.manifest and licenses-spdx/. The script is
+# licenses.manifest, the SPDX texts of licenses-spdx/ and the libraries' own
+# license files the manifest points at (licenses-upstream/). The script is
 # ~/.claude/templates/crystal/harvest-licenses.sh, and its header documents
-# both inputs; it skips cleanly when there is no manifest, so a project that
+# these inputs; it skips cleanly when there is no manifest, so a project that
 # bakes no licenses can drop the task, the script and the depends above without
 # anything breaking in the meantime.
 [tasks."dev:licenses"]
