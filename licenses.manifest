@@ -1,21 +1,42 @@
-# kind | name | source (on-disk LICENSE path for shards; SPDX id for clib/runtime)
+# kind | name | source (on-disk LICENSE path for shards; for clib/runtime, an
+# SPDX id of licenses-spdx/, or the path of the library's own license file)
 #
-# Everything the redistributed static binary carries: shard licenses copied from
-# lib/<name>/LICENSE, and the licenses of the C libraries linked statically into
-# the musl build (see Dockerfile's static apk packages) grouped by SPDX id from
-# licenses-spdx/. Assembled into licenses/ (baked into the binary) by
-# scripts/harvest-licenses.sh.
+# Only what the released binary actually embeds: the runtime shards of
+# shard.yml (spectator is a development dependency that never ends up in it),
+# and the C libraries the binary links. Add a line for every runtime shard
+# added. Assembled into licenses/ (baked into the binary, printed by
+# `ssherlock licenses`) by scripts/harvest-licenses.sh.
+#
+# CONFIRMED on 2026-11-18 against the link line of this very binary, in
+# alpine:3.24 with Alpine's crystal 1.20.3 (the base of the image
+# crystalreleaser generates for the linux builds, plus libssh2):
+#   -lssh2 -lssl -lcrypto -lz -lyaml -lpcre2-8 -pthread -lgc -ldl
+#   (+ musl, libgcc)
+# libssh2 comes from the ssh2 shard. Versions and licenses as apk records them
+# in that image: libssh2 1.11.1 BSD-3-Clause, openssl 3.5.9 Apache-2.0, yaml
+# 0.2.5 MIT, pcre2 10.49 BSD-3-Clause, zlib 1.4 Zlib, musl 1.2.6 MIT, gc 8.2.12
+# Boehm-GC. Check the link line again when a stdlib module or a C binding is
+# added, or the image moves.
+#
+# MIT, BSD-3-Clause and zlib require the copyright notice to be reproduced,
+# and their SPDX text only has a blank there: those libraries embed their own
+# license file, taken from their sources at the versions above:
+#   libssh2  COPYING     github.com/libssh2/libssh2     tag libssh2-1.11.1
+#   libyaml  License     github.com/yaml/libyaml        tag 0.2.5
+#   pcre2    LICENCE.md  github.com/PCRE2Project/pcre2  tag pcre2-10.49
+#   zlib     LICENSE     github.com/madler/zlib         tag v1.4
+#   musl     COPYRIGHT   git.musl-libc.org/cgit/musl    tag v1.2.6
 shard   | ssh2              | lib/ssh2/LICENSE
 shard   | admiral           | lib/admiral/LICENSE
 shard   | baked_file_system | lib/baked_file_system/LICENSE
 shard   | crystal-env       | lib/crystal-env/LICENSE
-clib    | libssh2           | BSD-3-Clause
+clib    | libssh2           | licenses-upstream/libssh2.txt
 clib    | openssl           | Apache-2.0
-clib    | pcre2             | BSD-3-Clause
-clib    | libyaml           | MIT
-clib    | zlib              | Zlib
+clib    | libyaml           | licenses-upstream/libyaml.txt
+clib    | pcre2             | licenses-upstream/pcre2.txt
+clib    | zlib              | licenses-upstream/zlib.txt
 clib    | boehm-gc          | Boehm-GC
-clib    | musl              | MIT
+clib    | musl              | licenses-upstream/musl.txt
 clib    | libgcc            | GCC-runtime-exception
 runtime | crystal           | Apache-2.0
-project | ssherlock      | LICENSE
+project | ssherlock         | LICENSE

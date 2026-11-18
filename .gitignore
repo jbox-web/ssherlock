@@ -1,9 +1,9 @@
-/docs/api/
+/docs/
 /lib/
 /bin/*
 !/bin/.keep
-!/bin/ameba.cr
-/packages/
+/dist/
+/coverage/
 *.dwarf
 .DS_Store
 /.spectator-failures

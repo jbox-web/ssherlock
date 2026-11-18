@@ -19,8 +19,8 @@ module Ssherlock
     end
 
     {% for level in %w[debug info warn error] %}
-      def {{level.id}}(msg : String) : Nil
-        emit({{level.upcase}}, msg)
+      def {{ level.id }}(msg : String) : Nil
+        emit({{ level.upcase }}, msg)
       end
     {% end %}
 

@@ -148,9 +148,9 @@ module Ssherlock
     # "none"/empty/nil bastion -> no bastion. "user@alias" splits the user; a bare
     # alias inherits nothing (ssh -G resolves user). Resolution follows the same rules.
     private def build_bastion(spec : String?, conn : YAML::Any, resolver : SshConfigResolver) : Endpoint?
-      return nil if spec.nil?
+      return if spec.nil?
       s = spec.strip
-      return nil if s.empty? || s.downcase == "none"
+      return if s.empty? || s.downcase == "none"
       bname, buser_override = parse_bastion_spec(s)
       r = resolver.resolve(bname)
       user = resolve_bastion_user(buser_override, r, conn)

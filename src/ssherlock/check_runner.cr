@@ -25,11 +25,9 @@ module Ssherlock
       chan = ::Channel(String).new(1)
       err = ::Channel(Exception).new(1)
       spawn do
-        begin
-          chan.send(exec.exec(cmd))
-        rescue ex
-          err.send(ex)
-        end
+        chan.send(exec.exec(cmd))
+      rescue ex
+        err.send(ex)
       end
 
       select

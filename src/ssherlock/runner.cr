@@ -37,21 +37,19 @@ module Ssherlock
 
       pool.times do
         spawn do
-          begin
-            loop do
-              server = queue.receive?
-              break if server.nil?
-              env = @collector.collect(server, @opener)
-              begin
-                write_host(env)
-              rescue ex
-                @logger.error("[#{server.label}] failed to write #{env.label}.json: #{ex.message}")
-              end
-              mutex.synchronize { results[server.label] = env }
+          loop do
+            server = queue.receive?
+            break if server.nil?
+            env = @collector.collect(server, @opener)
+            begin
+              write_host(env)
+            rescue ex
+              @logger.error("[#{server.label}] failed to write #{env.label}.json: #{ex.message}")
             end
-          ensure
-            done.send(nil)
+            mutex.synchronize { results[server.label] = env }
           end
+        ensure
+          done.send(nil)
         end
       end
       pool.times { done.receive }

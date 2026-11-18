@@ -11,9 +11,9 @@ module Ssherlock
     # compilation ("Run is not a module, it's a class").
     class RunCommand < Admiral::Command
       define_help description: "Collect audit data; positional args target specific machines by label or host"
-      define_flag redact : Bool, long: "redact", default: false, description: "Mask secrets in output"                                # ameba:disable Lint/UselessAssign
-      define_flag presets_dir : String, long: "presets-dir", default: "", description: "Directory of user preset YAML files"          # ameba:disable Lint/UselessAssign
-      define_flag config : String, long: "config", short: "c", default: "ssherlock.yml", description: "Path to the fleet config YAML" # ameba:disable Lint/UselessAssign
+      define_flag redact : Bool, long: "redact", default: false, description: "Mask secrets in output"
+      define_flag presets_dir : String, long: "presets-dir", default: "", description: "Directory of user preset YAML files"
+      define_flag config : String, long: "config", short: "c", default: "ssherlock.yml", description: "Path to the fleet config YAML"
 
       def exit_code : Int32
         Ssherlock.run(flags.config, redact: flags.redact,
@@ -73,8 +73,8 @@ module Ssherlock
     # The binary carries the analysis half; it does not run it — an LLM does.
     class SkillCommand < Admiral::Command
       define_help description: "Print the bundled ssherlock-audit skill, or install it"
-      define_flag global : Bool, description: "Install into ~/.claude/skills instead of ./.claude/skills", default: false # ameba:disable Lint/UselessAssign
-      define_flag force : Bool, description: "Overwrite existing skill files on install", default: false                  # ameba:disable Lint/UselessAssign
+      define_flag global : Bool, description: "Install into ~/.claude/skills instead of ./.claude/skills", default: false
+      define_flag force : Bool, description: "Overwrite existing skill files on install", default: false
       define_argument action : String, description: "'install' to write the skill; omit to print it"
 
       def exit_code : Int32

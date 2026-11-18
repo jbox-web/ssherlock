@@ -4,10 +4,6 @@ shards:
     git: https://github.com/jwaldrip/admiral.cr.git
     version: 1.12.1
 
-  ameba:
-    git: https://github.com/crystal-ameba/ameba.git
-    version: 1.6.4
-
   baked_file_system:
     git: https://github.com/schovi/baked_file_system.git
     version: 0.14.1

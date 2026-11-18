@@ -18,18 +18,38 @@ Everything goes through `mise dev:*` — the build/spec/docs tasks depend on
 folder is baked into the binary (an absent/empty baked folder fails the build).
 
 ```sh
-mise dev:deps          # shards install (also builds bin/ameba)
+mise dev:deps          # shards install
 mise dev:build         # compile the dev binary
-mise dev:format-check  # crystal tool format --check
-mise dev:ameba         # static analysis (bin/ameba)
+mise dev:format-check  # crystal tool format --check src/ spec/
+mise dev:ameba         # static analysis (ameba is a mise tool), bounded at 180s
 mise dev:spec          # unit specs
 mise dev:spec-mt       # same, -Dpreview_mt — fiber-safety gate
 mise dev:check         # format-check + ameba + spec + spec-mt in one shot
+mise dev:docs          # API docs into docs/
+mise dev:coverage      # spec line coverage with kcov -> coverage/index.html
+mise release:static    # release snapshot by crystalreleaser into dist/, nothing published
 ```
 
+`mise.toml`, `.crystalreleaser.yml`, `Brewfile`, `scripts/harvest-licenses.sh`
+and `scripts/kcov.css` are the canonical templates of
+`~/.claude/templates/crystal/`, adapted: `APP_NAME`, the `dev:check` task, the
+libssh2 apk packages of `docker.packages`, the `libssh2` entry of
+`static_libs`, and `libssh2` in the `Brewfile`.
+`.github/workflows/ci.yml` and `release.yml` are the canonical workflows plus
+one `Install libssh2` step per job that compiles.
+
+Releases: crystalreleaser builds them, `mise release:static` locally and
+`.github/workflows/release.yml` on a `v*` tag, which publishes
+`ssherlock-<os>-<arch>` and its `.sha256`. The linux binaries are static (musl,
+libssh2 from Alpine). The darwin binaries link Homebrew's OpenSSL 4 and libssh2
+statically (`static_libs`, a list of formulas, which needs crystalreleaser
+0.3.0 or newer) and only load what macOS ships. `licenses.manifest` follows
+the link line of the static binary, recorded in its header.
+
 Run `mise dev:check` before declaring work done. Direct `crystal spec` works too
-(the `licenses/` and `skills/` folders already exist in-tree), but prefer the
-mise tasks so the baked folders stay assembled.
+once `mise dev:licenses` has run (`skills/` is in-tree, `licenses/` is
+generated and gitignored), but prefer the mise tasks so the baked folders stay
+assembled.
 
 ## Architecture
 

@@ -4,13 +4,13 @@ Spectator.describe Ssherlock::SshConfigResolver do
   describe ".parse" do
     it "extracts hostname, user, port and the first identityfile" do
       output = <<-OUT
-      host digi.bastion
-      hostname 193.116.173.79
-      user root
-      port 22
-      identityfile ~/.ssh/keys/my_key
-      identityfile ~/.ssh/id_rsa
-      OUT
+        host digi.bastion
+        hostname 193.116.173.79
+        user root
+        port 22
+        identityfile ~/.ssh/keys/my_key
+        identityfile ~/.ssh/id_rsa
+        OUT
       resolved = Ssherlock::SshConfigResolver.parse(output)
       expect(resolved.hostname).to eq("193.116.173.79")
       expect(resolved.user).to eq("root")

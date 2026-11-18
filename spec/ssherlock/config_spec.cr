@@ -77,22 +77,22 @@ Spectator.describe Ssherlock::Config do
 
   it "parses check metadata: category, severity, expected" do
     raw = YAML.parse(<<-YAML)
-    presets:
-      m:
-        checks:
-          ssh:
-            root:
-              category: security
-              severity: high
-              expected: "no"
-              command: grep -i '^PermitRootLogin' /etc/ssh/sshd_config
-          cpu:
-            lscpu:
-              category: inventory
-              command: lscpu
-    servers:
-      - {host: h1, label: n1, inherit: m}
-    YAML
+      presets:
+        m:
+          checks:
+            ssh:
+              root:
+                category: security
+                severity: high
+                expected: "no"
+                command: grep -i '^PermitRootLogin' /etc/ssh/sshd_config
+            cpu:
+              lscpu:
+                category: inventory
+                command: lscpu
+      servers:
+        - {host: h1, label: n1, inherit: m}
+      YAML
     s = Ssherlock::Config.new(raw, loader).servers.first
     ctrl = s.checks["ssh"]["root"]
     expect(ctrl.category).to eq("security")
@@ -106,43 +106,43 @@ Spectator.describe Ssherlock::Config do
 
   it "rejects an out-of-enum category" do
     raw = YAML.parse(<<-YAML)
-    presets:
-      m:
-        checks:
-          x:
-            c: {category: nope, command: "true"}
-    servers:
-      - {host: h1, label: n1, inherit: m}
-    YAML
+      presets:
+        m:
+          checks:
+            x:
+              c: {category: nope, command: "true"}
+      servers:
+        - {host: h1, label: n1, inherit: m}
+      YAML
     expect { Ssherlock::Config.new(raw, loader) }.to raise_error(Ssherlock::Error, /invalid category/)
   end
 
   it "rejects an out-of-enum severity" do
     raw = YAML.parse(<<-YAML)
-    presets:
-      m:
-        checks:
-          x:
-            c: {category: security, severity: fatal, expected: "y", command: "true"}
-    servers:
-      - {host: h1, label: n1, inherit: m}
-    YAML
+      presets:
+        m:
+          checks:
+            x:
+              c: {category: security, severity: fatal, expected: "y", command: "true"}
+      servers:
+        - {host: h1, label: n1, inherit: m}
+      YAML
     expect { Ssherlock::Config.new(raw, loader) }.to raise_error(Ssherlock::Error, /invalid severity/)
   end
 
   it "resolves a preset defined inline in the config's presets: block" do
     raw = YAML.parse(<<-YAML)
-    presets:
-      webnode:
-        options: {wrap: true}
-        checks:
-          web:
-            nginx:
-              description: nginx version
-              command: nginx -v
-    servers:
-      - {host: h1, label: n1, inherit: webnode}
-    YAML
+      presets:
+        webnode:
+          options: {wrap: true}
+          checks:
+            web:
+              nginx:
+                description: nginx version
+                command: nginx -v
+      servers:
+        - {host: h1, label: n1, inherit: webnode}
+      YAML
     config = Ssherlock::Config.new(raw, loader)
     s = config.servers.first
     expect(s.checks["web"].has_key?("nginx")).to be_true
@@ -165,16 +165,16 @@ Spectator.describe Ssherlock::Config do
 
   it "gives inline presets precedence over the external dir and the base loader" do
     raw = YAML.parse(<<-YAML)
-    presets:
-      base:
-        options: {wrap: true}
-        checks:
-          inline:
-            win:
-              command: echo inline
-    servers:
-      - {host: h1, label: n1, inherit: base}
-    YAML
+      presets:
+        base:
+          options: {wrap: true}
+          checks:
+            inline:
+              win:
+                command: echo inline
+      servers:
+        - {host: h1, label: n1, inherit: base}
+      YAML
     config = Ssherlock::Config.new(raw, loader, presets_dir_override: fixture_path("presets_ext"))
     s = config.servers.first
     expect(s.checks["inline"].has_key?("win")).to be_true
@@ -190,13 +190,13 @@ Spectator.describe Ssherlock::Config do
 
   it "resolves the target endpoint via ssh -G, config winning over resolution" do
     raw = YAML.parse(<<-YAML)
-    servers:
-      - host: digi.bastion
-        label: b1
-        inherit: base
-        ssh:
-          user: root
-    YAML
+      servers:
+        - host: digi.bastion
+          label: b1
+          inherit: base
+          ssh:
+            user: root
+      YAML
     resolver = FakeResolver.new({
       "digi.bastion" => Ssherlock::ResolvedConfig.new(
         hostname: "193.116.173.79", user: "someoneelse", port: 22,
